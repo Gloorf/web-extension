@@ -226,12 +226,23 @@ class OGIData {
   }
 
   constructor() {
-    const res = JSON.parse(localStorage.getItem(localStorageKey));
-    this._json = res || {};
+    let rawData = localStorage.getItem(localStorageKey);
+    // Handle migration from old, uncompressed data
+    try {
+      let res = JSON.parse(LZString.decompressFromUTF16(rawData));
+      this._json = res;
+    } catch (e) {
+      // JSON.parse throws SyntaxError when it cannot parse
+      if (e instanceof SyntaxError) {
+        // We couldn't parse compressed data, so let's try to parse the raw data, to handle old, uncompressed data
+        // If rawData is null (because the data doesn't exist yet), JSON.parse() will return null, so provide a saner default
+        this._json = JSON.parse(rawData) || {};
+      }
+    }
   }
 
   #save() {
-    localStorage.setItem(localStorageKey, JSON.stringify(this._json));
+    localStorage.setItem(localStorageKey, LZString.compressToUTF16(JSON.stringify(this._json)));
   }
 }
 
